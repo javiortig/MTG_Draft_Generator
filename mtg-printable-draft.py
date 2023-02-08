@@ -6,7 +6,7 @@ import re
 from bs4 import BeautifulSoup
 from fpdf import FPDF
 import shutil
-from tkinter import Tk     # from tkinter import Tk for Python 3.x
+from tkinter import Tk, messagebox     # from tkinter import Tk for Python 3.x
 from tkinter.filedialog import askdirectory
 
 a4_width, a4_height = int(21 * 96), int(29.7 * 96)
@@ -32,11 +32,14 @@ def getCardSetList(dir):
 def getImagesFromSet(cards_draft, dir):
     if not os.path.exists(dir + "/img"):
         os.makedirs(dir + "/img")
+    else:
+        return False
     
     for card in cards_draft:
         url = "https://scryfall.com/card/"+ card["set"] +"/"+ str(card["id"])
         downloadImage(url, dir + "/img" + "/" + str(card["id"]))
 
+    return True
 
 def downloadImage(url, dir):
     # Use the requests library to get the HTML content of the page
@@ -65,16 +68,22 @@ def get_image_files(directory):
     return [os.path.join(dir + "/img", f) for f in os.listdir(dir + "/img")]
 
 def createSheets(setList, pdf_name, dir):
-    image_files = get_image_files(dir)
+    # image_files = get_image_files(dir)
+    # print("image_files en createSheets:")
+    # for im in image_files:
+    #     print(im)
+    # print("\n\n")
 
     x, y, k = 0, 0, 0
     final_img = Image.new("RGB", (a4_width, a4_height), (255, 255, 255))
-    lastSaved = False # Checks that the last sheet was saved too. This happends if n_images // images_per_sheet == 0
+    lastSaved = False # to check that the last sheet was saved too. This happends if n_images // images_per_sheet == 0
     sheets = []
-    for i in range(len(image_files)):
+    for i in range(len(setList)):
         # Repeat j times, where j is the quantity
         for j in range(setList[i]["quantity"]):
-            with Image.open(image_files[i]) as im:
+            with Image.open(dir + "/img/" + str(setList[i]["id"]) + ".png") as im:
+                print(f"i: {i}, setList[i]: {setList[i]}")
+
                 lastSaved = False
                 final_img.paste(im, (x, y))
                 x += img_width
@@ -102,20 +111,34 @@ def createSheets(setList, pdf_name, dir):
 
 if __name__ == "__main__":
     # Ask for file
+    print("1) Inicio")
     root = Tk()
     root.withdraw()
     dir = askdirectory(parent=root, title="Selecciona el directorio del draft, en el que se encuentra el Decklist-Arena.txt")
-    print(dir)
-    root.destroy() 
+    print("El dir es: " + dir)
 
-    #Proccess card draft
+    print("2) Termina TK. Empieza getCardSetList")
+
+    # Proccess card draft
     setList = getCardSetList(dir)
-    #Get the cards image
-    getImagesFromSet(setList, dir)
-    #Create a printable pdf from the images
+    print("3) Termina getCardSetList. Hemos obtenido la Lista:")
+    print(setList)
+    # Get the cards image
+    print("--Hasta aqui parece que bien")
+    print("4) Empieza getImagesFromSet:")
+
+    # Get images. If file already exists, exception:
+    if(not getImagesFromSet(setList, dir)):
+        messagebox.showerror("ERROR", "Ya existe un directorio /img en el entorno de ejecucción.\n" +
+         "Por favor, borre /img que se encuentra en: " + dir)
+        quit()
+
+    print("5) Empieza createSheets:")
+    # Create a printable pdf from the images
     createSheets(setList, "imprimir", dir)
 
     # Removes the generated img folder
     shutil.rmtree(dir + "/img")
 
-    
+    # Destroys Tkinter
+    root.destroy() 
